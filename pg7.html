@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="kyyy.png">
+<link rel="stylesheet" href="site.css">
+<link rel="preload" href="fonts/fraunces-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+<title>Reset your password | KYSH Clothing</title>
+</head>
+<body data-page="reset">
+<main class="auth">
+  <section class="auth-panel">
+    <a class="brand" href="pg2.html" aria-label="KYSH home"><img src="kyyy.png" alt=""><span>KYSH</span></a>
+    <div class="auth-box">
+      <h1 id="title">Reset your password</h1>
+      <p class="line" id="lead">Enter the email you signed up with and we'll send you a reset link.</p>
+      <div class="message msg" id="msg" role="alert"></div>
+      <form id="resetForm" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" type="email" autocomplete="email" required>
+        </div>
+        <button class="btn btn-pink" type="submit">Send reset link</button>
+      </form>
+      <p class="auth-alt"><a href="pg3.html">Back to log in</a></p>
+    </div>
+  </section>
+  <section class="auth-photo" aria-hidden="true"><img src="img/green-dress.webp" alt="" width="2000" height="1333" style="object-position:58% 70%"></section>
+</main>
+
+<script src="product/config.js"></script>
+<script src="product/store.js"></script>
+<script>
+(function () {
+  const resetForm = document.getElementById('resetForm');
+  const msg = document.getElementById('msg');
+  const show = (text, ok) => { msg.textContent = text; msg.className = 'message msg ' + (ok ? 'success' : 'error'); };
+
+  resetForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return show('Enter a valid email address.', false);
+    const btn = resetForm.querySelector('button'); btn.disabled = true;
+    const r = await KYSH.resetPassword(email);
+    btn.disabled = false;
+    if (r.error) return show(r.error, false);
+    show('Reset link sent. Check your email.', true);
+    if (!KYSH.useDb) setTimeout(() => { window.location.href = 'pg3.html'; }, 2000);
+  });
+
+  // The customer clicked the link in the reset email: swap the form for a "new password" form.
+  KYSH.onPasswordRecovery(() => {
+    document.getElementById('title').textContent = 'Choose a new password';
+    document.getElementById('lead').textContent = 'Pick a password you have not used here before.';
+    resetForm.innerHTML = '<div class="field"><label for="np">New password</label><input class="input" id="np" type="password" minlength="6" autocomplete="new-password" required><p class="hint">At least 6 characters.</p></div>' +
+      '<button class="btn btn-pink" type="submit">Save new password</button>';
+    const clone = resetForm.cloneNode(true); resetForm.replaceWith(clone);
+    clone.addEventListener('submit', async e => {
+      e.preventDefault();
+      const r = await KYSH.updatePassword(clone.querySelector('#np').value);
+      if (r.error) return show(r.error, false);
+      show('Password updated. Taking you to log in…', true);
+      setTimeout(() => { window.location.href = 'pg3.html'; }, 1500);
+    });
+  });
+})();
+</script>
+</body>
+</html>

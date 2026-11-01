@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="kyyy.png">
+<link rel="stylesheet" href="site.css">
+<link rel="preload" href="fonts/fraunces-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+<title>KYSH Clothing | Home</title>
+<meta name="description" content="Shop dresses, gowns, kurtis, sarees and more at KYSH Clothing.">
+</head>
+<body data-page="home">
+<a class="skip" href="#main">Skip to content</a>
+<div id="site-nav"></div>
+<main id="main">
+  <section class="home-hero"><div class="wrap">
+    <div>
+      <h1>From everyday kurtis to wedding lehengas.</h1>
+      <p>Browse the whole KYSH collection, or search for the piece you have in mind.</p>
+      <form class="search-big" id="homeSearchForm" role="search">
+        <input id="homeSearch" type="search" placeholder="Try &ldquo;saree&rdquo; or &ldquo;black gown&rdquo;" aria-label="Search the collection">
+        <button class="btn btn-pink" type="submit">Search</button>
+      </form>
+    </div>
+    <div class="hero-pics" aria-hidden="true">
+      <img src="img/red-dress.webp" width="1100" height="1650" alt="">
+      <img src="img/plaid-skirt.webp" width="1100" height="1650" alt="">
+    </div>
+  </div></section>
+
+  <section class="section" style="padding-top:0"><div class="wrap">
+    <div class="section-head"><h2>Shop by category</h2><a class="link" href="product/productlist.html">See all styles</a></div>
+    <div class="cats" id="cats"></div>
+  </div></section>
+
+  <section class="section" style="padding-top:0"><div class="wrap">
+    <div class="section-head"><h2>Biggest discounts</h2><a class="link" href="product/productlist.html?sort=disc">See more</a></div>
+    <div class="picks" id="picks"></div>
+  </div></section>
+
+  <section class="section" style="padding-top:0"><div class="wrap">
+    <div class="section-head"><h2>Offers</h2></div>
+    <div class="offers">
+      <a href="product/productlist.html"><img src="img/offer-1.webp" width="800" height="1131" loading="lazy" alt="Black Friday special discount banner"></a>
+      <a href="product/productlist.html"><img src="img/offer-2.webp" width="800" height="1131" loading="lazy" alt="Black Friday sale banner, up to 50% off"></a>
+      <div class="coupon-card" id="couponCard"></div>
+    </div>
+  </div></section>
+
+  <section class="promise"><div class="wrap">
+    <div><h3>Pay on delivery</h3><p>Choose Cash on Delivery and pay when your order arrives.</p></div>
+    <div><h3>Secure online payment</h3><p>Pay by UPI, card or netbanking in Razorpay's secure window. KYSH never sees your card details.</p></div>
+    <div><h3>Your orders in one place</h3><p>Log in to see your bag, wishlist and every order you've placed.</p></div>
+  </div></section>
+</main>
+<div id="site-footer"></div>
+
+<script src="product/config.js"></script>
+<script src="product/store.js"></script>
+<script src="site.js"></script>
+<script>
+(async function () {
+  const E = KYSH.esc;
+  document.getElementById('homeSearchForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const q = document.getElementById('homeSearch').value.trim();
+    location.href = 'product/productlist.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+  });
+  try {
+    const [all, cps] = await Promise.all([KYSH.products(), KYSH.coupons()]);
+    const byCat = {};
+    all.forEach(p => (byCat[p.category] = byCat[p.category] || []).push(p));
+    const cats = Object.entries(byCat).sort((a, b) => b[1].length - a[1].length);
+    document.getElementById('cats').innerHTML = cats.map(([name, list]) => `
+      <a class="cat" href="product/productlist.html?cat=${encodeURIComponent(name)}">
+        <div class="ph"><img loading="lazy" src="${E(KYSH.img(list[0].img, 500))}" alt="${E(list[0].name)}"></div>
+        <h3>${E(name)}</h3><small>${list.length} ${list.length === 1 ? 'style' : 'styles'}</small>
+      </a>`).join('');
+    const top = [...all].sort((a, b) => b.discount - a.discount).slice(0, 8);
+    document.getElementById('picks').innerHTML = top.map(p => `
+      <a class="pick" href="product/product.html?id=${p.id}">
+        <div class="ph"><img loading="lazy" src="${E(KYSH.img(p.img, 400))}" alt="${E(p.name)}"></div>
+        <b>${E(p.name)}</b>
+        <span>${KYSH.inr(p.price)}</span><span class="was">${KYSH.inr(p.oldPrice)}</span>
+      </a>`).join('');
+    if (cps[0]) document.getElementById('couponCard').innerHTML =
+      '<p class="muted">Coupon code</p><b class="code">' + E(cps[0].code) + '</b><p>' + E(cps[0].label) + '.</p>' +
+      '<a class="btn btn-pink" href="product/productlist.html">Shop and save</a>';
+  } catch (err) {
+    document.getElementById('cats').innerHTML = '<p class="muted">The collection could not be loaded. Please refresh the page.</p>';
+  }
+})();
+</script>
+</body>
+</html>

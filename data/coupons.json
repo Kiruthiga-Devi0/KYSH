@@ -1,0 +1,4 @@
+[
+  { "code": "KYSH10",  "type": "percent", "value": 10, "max": 300, "min": 999,  "label": "10% off (up to ₹300) on orders above ₹999" },
+  { "code": "FLAT200", "type": "flat",    "value": 200,            "min": 1999, "label": "₹200 off on orders above ₹1999" }
+]

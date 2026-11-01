@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYSH – Order placed</title>
+  <link rel="stylesheet" href="kysh.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="page"><div class="center-card" id="card"></div></main>
+
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script>
+(async function () {
+  if (!(await KYSH.requireLogin())) return;
+  KYSH.header({});
+  const o = await KYSH.lastOrder(), E = KYSH.esc, R = KYSH.inr, card = document.getElementById('card');
+  if (!o) {
+    card.innerHTML = '<h2>Order not found</h2><p class="muted" style="margin:8px 0 18px">It looks like you came here by mistake.</p><a class="btn btn-primary" href="productlist.html">Go to shop</a>';
+    return;
+  }
+  card.innerHTML = `
+    <div class="tick">✓</div>
+    <h1 style="font-size:22px;margin-bottom:6px">Order placed successfully!</h1>
+    <p class="muted">Order <b>${E(o.id)}</b></p>
+    <div class="thumbs" style="justify-content:center;margin:18px 0">${o.items.map(i => `<img src="${E(KYSH.img(i.img, 120))}" alt="${E(i.name)}">`).join('')}</div>
+    <p><b>Payment:</b> ${o.payment === 'cod' ? 'Cash on Delivery' : 'Paid online'}</p>
+    <p><b>Shipping to:</b> ${E(o.address.name)}, ${E(o.address.city)} – ${E(o.address.pincode)}</p>
+    <p style="font-size:18px;font-weight:700;color:var(--pink);margin-top:14px">Total: ${R(o.total)}</p>
+    <a class="btn btn-primary btn-block" style="margin-top:22px" href="productlist.html">Continue shopping</a>
+    <a class="btn btn-ghost btn-block" style="margin-top:10px" href="orders.html">View my orders</a>
+    <p class="muted" style="font-size:13px;margin-top:16px">Thank you for shopping with KYSH 💖</p>`;
+})();
+</script>
+</body>
+</html>

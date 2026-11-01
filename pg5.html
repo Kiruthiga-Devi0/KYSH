@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="kyyy.png">
+<link rel="stylesheet" href="site.css">
+<link rel="preload" href="fonts/fraunces-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+<title>Create your account | KYSH Clothing</title>
+</head>
+<body data-page="signup">
+<main class="auth">
+  <section class="auth-panel">
+    <a class="brand" href="pg2.html" aria-label="KYSH home"><img src="kyyy.png" alt=""><span>KYSH</span></a>
+    <div class="auth-box">
+      <h1>Create your account</h1>
+      <p>Save your bag, wishlist and orders in one place.</p>
+      <div class="msg" id="authMsg" role="alert"></div>
+      <form id="signupForm" novalidate>
+        <div class="field">
+          <label for="name">Name</label>
+          <input class="input" id="name" name="name" type="text" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="pw">
+            <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="6" aria-describedby="pwHint" required>
+            <button class="pw-toggle" id="togglePassword" type="button" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <p class="hint" id="pwHint">At least 6 characters.</p>
+        </div>
+        <button class="btn btn-pink" type="submit">Create account</button>
+      </form>
+      <p class="auth-alt">Already have an account? <a href="pg3.html">Log in</a></p>
+    </div>
+  </section>
+  <section class="auth-photo" aria-hidden="true"><img src="img/plaid-skirt.webp" alt="" width="1100" height="1650"></section>
+</main>
+
+<script src="product/config.js"></script>
+<script src="product/store.js"></script>
+<script>
+(function () {
+  const form = document.getElementById('signupForm'), msg = document.getElementById('authMsg');
+  const show = (t, kind) => { msg.textContent = t; msg.className = 'msg ' + (kind || ''); };
+  const pw = document.getElementById('password'), tog = document.getElementById('togglePassword');
+  tog.addEventListener('click', () => {
+    const hidden = pw.type === 'password'; pw.type = hidden ? 'text' : 'password';
+    tog.textContent = hidden ? 'Hide' : 'Show'; tog.setAttribute('aria-pressed', hidden); tog.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+  });
+  const mark = (el, bad) => el.setAttribute('aria-invalid', bad ? 'true' : 'false');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = form.name.value.trim(), email = form.email.value.trim(), password = pw.value;
+    mark(form.name, !name); mark(form.email, !/^\S+@\S+\.\S+$/.test(email)); mark(pw, password.length < 6);
+    if (!name) return show('Enter your name.', 'error'), form.name.focus();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return show('Enter a valid email address.', 'error'), form.email.focus();
+    if (password.length < 6) return show('Choose a password with at least 6 characters.', 'error'), pw.focus();
+
+    const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = 'Creating account…';
+    const r = await KYSH.signUp({ name, email, password });
+    btn.disabled = false; btn.textContent = 'Create account';
+    if (r.error) return show(r.error, 'error');
+    if (r.needsConfirm) { form.reset(); return show('Account created. Check your email and confirm your address, then log in.', 'success'); }
+    location.href = 'pg3.html?welcome=1';
+  });
+})();
+</script>
+</body>
+</html>

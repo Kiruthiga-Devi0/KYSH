@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="kyyy.png">
+<link rel="stylesheet" href="site.css">
+<link rel="preload" href="fonts/fraunces-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+<title>Log in | KYSH Clothing</title>
+</head>
+<body data-page="login">
+<main class="auth">
+  <section class="auth-panel">
+    <a class="brand" href="pg2.html" aria-label="KYSH home"><img src="kyyy.png" alt=""><span>KYSH</span></a>
+    <div class="auth-box">
+      <h1>Welcome back</h1>
+      <p>Log in to see your bag, wishlist and orders.</p>
+      <div class="msg" id="authMsg" role="alert"></div>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="username" id="userLabel">Email or username</label>
+          <input class="input" id="username" name="username" type="text" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="pw">
+            <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+            <button class="pw-toggle" id="togglePassword" type="button" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+        </div>
+        <div class="row-between"><span></span><a class="link" href="pg7.html">Forgot password?</a></div>
+        <button class="btn btn-pink" type="submit">Log in</button>
+      </form>
+      <p class="auth-alt">New to KYSH? <a href="pg5.html">Create an account</a></p>
+    </div>
+  </section>
+  <section class="auth-photo" aria-hidden="true"><img src="img/red-dress.webp" alt="" width="1100" height="1650"></section>
+</main>
+
+<script src="product/config.js"></script>
+<script src="product/store.js"></script>
+<script>
+(async function () {
+  const form = document.getElementById('loginForm'), msg = document.getElementById('authMsg');
+  const show = (t, kind) => { msg.textContent = t; msg.className = 'msg ' + (kind || ''); };
+  if (KYSH.useDb) { document.getElementById('userLabel').textContent = 'Email'; document.getElementById('username').type = 'email'; document.getElementById('username').autocomplete = 'email'; }
+  if (new URLSearchParams(location.search).has('welcome')) show('Account created. Log in to start shopping.', 'success');
+
+  // Already logged in? Skip straight on.
+  const me = await KYSH.currentUser().catch(() => null);
+  if (me) { location.replace(KYSH.consumeNext() || 'product/productlist.html'); return; }
+
+  const pw = document.getElementById('password'), tog = document.getElementById('togglePassword');
+  tog.addEventListener('click', () => {
+    const hidden = pw.type === 'password'; pw.type = hidden ? 'text' : 'password';
+    tog.textContent = hidden ? 'Hide' : 'Show'; tog.setAttribute('aria-pressed', hidden); tog.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const u = form.username.value.trim(), p = pw.value;
+    if (!u || !p) { show('Enter your ' + (KYSH.useDb ? 'email' : 'email or username') + ' and password.', 'error'); return; }
+    const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = 'Logging in…';
+    const r = await KYSH.signIn(u, p);
+    if (r.ok) { location.href = KYSH.consumeNext() || 'product/productlist.html'; return; }
+    btn.disabled = false; btn.textContent = 'Log in';
+    show(r.error, 'error'); pw.focus();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="kyyy.png">
+<link rel="stylesheet" href="site.css">
+<link rel="preload" href="fonts/fraunces-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+<title>Contact us | KYSH Clothing</title>
+<meta name="description" content="Questions about an order or a style? Send KYSH Clothing a message.">
+</head>
+<body data-page="contact">
+<a class="skip" href="#main">Skip to content</a>
+<div id="site-nav"></div>
+<main id="main">
+  <section class="page-hero"><div class="wrap">
+    <h1>Contact us</h1>
+    <p>Questions about an order or a style? Send us a message.</p>
+  </div></section>
+
+  <div class="wrap contact-grid">
+    <div>
+      <h2 style="margin-bottom:24px;font-size:clamp(1.6rem,3vw,2.2rem)">Quick answers</h2>
+      <div class="faq">
+        <details><summary>How can I pay?</summary><p>Choose Cash on Delivery and pay when your order arrives, or pay online by UPI, card or netbanking through Razorpay.</p></details>
+        <details><summary>Where can I see my orders?</summary><p>Log in and open Orders in the top bar. Every order you've placed is listed there.</p></details>
+        <details><summary>How do I use a coupon code?</summary><p>Enter the code in your bag before you check out. For example, KYSH10 takes 10% off (up to ₹300) on orders above ₹999.</p></details>
+        <details><summary>Which sizes are available?</summary><p>S, M, L, XL and XXL. Pick your size on the product page before adding to your bag.</p></details>
+      </div>
+    </div>
+    <form class="contact-form" id="contactForm" novalidate>
+      <div class="msg" id="contactMsg" role="alert"></div>
+      <div class="two">
+        <div class="field"><label for="cname">Name</label><input class="input" id="cname" name="name" autocomplete="name" required></div>
+        <div class="field"><label for="cemail">Email</label><input class="input" id="cemail" name="email" type="email" autocomplete="email" required></div>
+      </div>
+      <div class="field"><label for="csubject">Subject</label><input class="input" id="csubject" name="subject" required></div>
+      <div class="field"><label for="cmessage">Message</label><textarea class="input" id="cmessage" name="message" required></textarea></div>
+      <button class="btn btn-pink" type="submit" style="width:100%">Send message</button>
+    </form>
+  </div>
+</main>
+<div id="site-footer"></div>
+
+<script src="product/config.js"></script>
+<script src="product/store.js"></script>
+<script src="site.js"></script>
+<script>
+(function () {
+  const form = document.getElementById('contactForm'), msg = document.getElementById('contactMsg');
+  const show = (t, kind) => { msg.textContent = t; msg.className = 'msg ' + kind; };
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const m = { name: form.name.value.trim(), email: form.email.value.trim(), subject: form.subject.value.trim(), message: form.message.value.trim() };
+    const bad = [...form.querySelectorAll('.input')].filter(el => { const v = !el.value.trim() || (el.type === 'email' && !/^\S+@\S+\.\S+$/.test(el.value.trim())); el.setAttribute('aria-invalid', v); return v; });
+    if (bad.length) { show(bad[0].type === 'email' && bad[0].value.trim() ? 'Enter a valid email address.' : 'Please fill in every field.', 'error'); bad[0].focus(); return; }
+    const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = 'Sending…';
+    const r = await KYSH.sendContact(m);
+    btn.disabled = false; btn.textContent = 'Send message';
+    if (r.error) return show(r.error, 'error');
+    form.reset(); show('Thanks, we have your message and will reply by email.' + (r.local ? ' (Demo mode: saved in this browser only.)' : ''), 'success');
+  });
+})();
+</script>
+</body>
+</html>

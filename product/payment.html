@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYSH – Checkout</title>
+  <link rel="stylesheet" href="kysh.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="page">
+  <h1 class="page-title">Checkout</h1>
+  <div id="content"></div>
+</main>
+
+<script src="../lib/pricing.js"></script>
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script>
+(async function () {
+  if (!(await KYSH.requireLogin())) return;
+  KYSH.header({});
+  const root = document.getElementById('content');
+  const E = KYSH.esc, R = KYSH.inr;
+
+  const buyNow = new URLSearchParams(location.search).get('mode') === 'buynow';
+  const items = buyNow ? KYSH.getBuyNow() : KYSH.getCart();
+  const [prods, cps] = await Promise.all([KYSH.products(), KYSH.coupons()]);
+  const code = KYSH.getCoupon();
+  const t = KyshPricing.priceCart(items, prods, cps, code);
+
+  if (!t.lines.length || t.errors.length) {
+    root.innerHTML = `<div class="empty"><p>${t.errors.length ? E(t.errors[0]) : 'Nothing to check out.'}</p><a class="btn btn-primary" href="bag.html">Back to bag</a></div>`;
+    return;
+  }
+
+  const me = KYSH.user() || {};
+  const saved = KYSH.ls.get('kysh_address', {});
+  const val = k => E(saved[k] || (k === 'name' ? me.name : '') || '');
+
+  root.innerHTML = `
+  <div class="two-col">
+    <div>
+      <div class="panel">
+        <h2>Shipping address</h2>
+        <input class="field" id="name" placeholder="Full name" autocomplete="name" value="${val('name')}">
+        <input class="field" id="mobile" placeholder="Mobile number (10 digits)" inputmode="numeric" autocomplete="tel" value="${val('mobile')}">
+        <input class="field" id="address" placeholder="House no, street, area" autocomplete="street-address" value="${val('address')}">
+        <input class="field" id="city" placeholder="City" autocomplete="address-level2" value="${val('city')}">
+        <input class="field" id="pincode" placeholder="Pincode (6 digits)" inputmode="numeric" autocomplete="postal-code" value="${val('pincode')}">
+        <div class="hint" id="formHint" hidden></div>
+      </div>
+      <div class="panel">
+        <h2>Payment method</h2>
+        <label class="pay-option"><input type="radio" name="pay" value="cod" checked>
+          <span><b>Cash on Delivery</b><small>Pay when your order arrives</small></span></label>
+        <label class="pay-option"><input type="radio" name="pay" value="online">
+          <span><b>Pay online</b><small>UPI, cards, netbanking &amp; wallets — secured by Razorpay</small></span></label>
+        <p class="muted" style="font-size:12px;margin:4px 0 14px">Card and UPI details are entered on Razorpay's secure window — KYSH never sees or stores them.</p>
+        <button class="btn btn-primary btn-block" id="placeOrder">Place order · ${R(t.total)}</button>
+      </div>
+    </div>
+    <aside class="panel">
+      <h2>Order summary</h2>
+      ${t.lines.map(l => `<div class="sum-row"><span>${E(l.name)} <span class="muted">(${E(l.size)} × ${l.qty})</span></span><span>${R(l.total)}</span></div>`).join('')}
+      <div class="sum-row" style="margin-top:6px"><span>Subtotal</span><span>${R(t.subtotal)}</span></div>
+      ${t.discount ? `<div class="sum-row save"><span>Coupon (${E(t.appliedCode)})</span><span>− ${R(t.discount)}</span></div>` : ''}
+      ${t.couponError ? `<div class="alert">${E(t.couponError)} — coupon not applied.</div>` : ''}
+      <div class="sum-row total"><span>Total</span><span>${R(t.total)}</span></div>
+      <a href="bag.html" class="link-btn">Edit bag</a>
+    </aside>
+  </div>`;
+
+  const $ = id => document.getElementById(id);
+  const btn = $('placeOrder');
+  const lineItems = t.lines.map(l => ({ id: l.id, size: l.size, qty: l.qty }));  // the server only ever gets id / size / qty
+
+  function readAddress() {
+    const { address, bad } = KyshPricing.validateAddress({
+      name: $('name').value, mobile: $('mobile').value, address: $('address').value, city: $('city').value, pincode: $('pincode').value });
+    ['name', 'mobile', 'address', 'city', 'pincode'].forEach(k => $(k).classList.toggle('invalid', bad.includes(k)));
+    const hint = $('formHint');
+    hint.hidden = !bad.length;
+    hint.textContent = bad.includes('mobile') ? 'Enter a valid 10-digit mobile number.' : bad.includes('pincode') ? 'Enter a valid 6-digit pincode.' : 'Please fill in all address fields.';
+    return bad.length ? null : address;
+  }
+
+  // Local mode builds the order here. In Supabase mode the server builds it and sends it back.
+  const localOrder = (address, method, paymentId) => ({
+    id: 'KY' + Date.now().toString(36).toUpperCase(),
+    date: new Date().toISOString(),
+    items: t.lines.map(l => ({ id: l.id, name: l.name, img: l.img, size: l.size, qty: l.qty, unit: l.unit, total: l.total })),
+    address, payment: method, paymentId: paymentId || null,
+    subtotal: t.subtotal, discount: t.discount, coupon: t.appliedCode, total: t.total,
+    status: method === 'online' ? 'Paid' : 'Placed · pay on delivery'
+  });
+
+  function complete(order, address) {
+    KYSH.recordOrder(order);
+    KYSH.ls.set('kysh_address', address);
+    if (buyNow) KYSH.clearBuyNow(); else KYSH.clearCart();
+    KYSH.setCoupon('');
+    location.href = 'order_success.html';
+  }
+
+  const loadScript = src => new Promise((ok, fail) => {
+    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fail(new Error('Could not load payment window')); document.head.appendChild(s);
+  });
+
+  async function placeCod(address) {
+    if (!KYSH.useDb) return complete(localOrder(address, 'cod'), address);
+    const r = await KYSH.api('/api/place-order', { items: lineItems, coupon: t.appliedCode || '', address });
+    if (r.status === 401) return;
+    if (!r.ok) { KYSH.toast(r.data.error || 'Could not place your order. Please try again.'); return; }
+    complete(r.data.order, address);
+  }
+
+  async function payOnline(address) {
+    const r = await KYSH.api('/api/create-order', { items: lineItems, coupon: t.appliedCode || '', address });
+    const d = r.data;
+    if (r.status === 401) return;
+    if (r.status === 501 || r.status === 404) { KYSH.toast('Online payment is not switched on yet — please choose Cash on Delivery.'); return; }
+    if (!r.ok) { KYSH.toast(d.error || 'Could not start payment. Please try again.'); return; }
+    await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+    await new Promise(resolve => {
+      const rzp = new Razorpay({
+        key: d.keyId, amount: d.amount, currency: 'INR', order_id: d.orderId, name: 'KYSH', description: 'Order payment',
+        prefill: { name: address.name, contact: address.mobile, email: me.email || '' }, theme: { color: '#e6005c' },
+        handler: async resp => {
+          const v = await KYSH.api('/api/verify-payment', resp);
+          if (v.ok && v.data.ok) complete(v.data.order || localOrder(address, 'online', resp.razorpay_payment_id), address);
+          else { KYSH.toast((v.data && v.data.error) || 'Payment could not be verified. If money was deducted, contact support.'); resolve(); }
+        },
+        modal: { ondismiss: resolve }
+      });
+      rzp.on('payment.failed', e => { KYSH.toast((e.error && e.error.description) || 'Payment failed'); resolve(); });
+      rzp.open();
+    });
+  }
+
+  btn.addEventListener('click', async () => {
+    const address = readAddress();
+    if (!address) { KYSH.toast('Please check your address details'); return; }
+    const method = document.querySelector('input[name="pay"]:checked').value;
+    btn.disabled = true;
+    try {
+      if (method === 'cod') await placeCod(address);
+      else await payOnline(address);
+    } catch (err) {
+      KYSH.toast(err.message || 'Something went wrong');
+    } finally { btn.disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>

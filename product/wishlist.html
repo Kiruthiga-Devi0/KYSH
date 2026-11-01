@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYSH – My Wishlist</title>
+  <link rel="stylesheet" href="kysh.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="page">
+  <h1 class="page-title">My Wishlist</h1>
+  <section class="product-grid" id="grid"></section>
+</main>
+
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script>
+(async function () {
+  if (!(await KYSH.requireLogin())) return;
+  KYSH.header({ search: true });
+  const all = await KYSH.products();
+  const grid = document.getElementById('grid');
+  const E = KYSH.esc;
+
+  function render() {
+    const items = KYSH.getWishlist().map(id => all.find(p => p.id === id)).filter(Boolean);
+    if (!items.length) {
+      grid.innerHTML = '<div class="empty"><p>Nothing saved yet. Tap the heart on any product to save it here.</p><a class="btn btn-primary" href="productlist.html">Browse products</a></div>';
+      return;
+    }
+    grid.innerHTML = items.map(p => `
+      <article class="card">
+        <a class="card-img" href="product.html?id=${p.id}"><img loading="lazy" src="${E(KYSH.img(p.img, 400))}" alt="${E(p.name)}"><span class="badge">${p.discount}% OFF</span></a>
+        <div class="card-info">
+          <span class="card-brand">${E(p.brand)}</span>
+          <a class="card-name" href="product.html?id=${p.id}">${E(p.name)}</a>
+          <div><span class="price">${KYSH.inr(p.price)}</span><span class="old-price">${KYSH.inr(p.oldPrice)}</span></div>
+          <a class="btn btn-primary btn-sm" href="product.html?id=${p.id}">Select size &amp; add</a>
+          <button class="btn btn-ghost btn-sm" data-remove="${p.id}" style="margin-top:6px">Remove</button>
+        </div>
+      </article>`).join('');
+  }
+  grid.addEventListener('click', e => {
+    const id = e.target.dataset.remove; if (id === undefined) return;
+    KYSH.toggleWishlist(Number(id)); render(); KYSH.toast('Removed from wishlist');
+  });
+  render();
+})();
+</script>
+</body>
+</html>

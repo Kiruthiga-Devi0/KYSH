@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYSH – My Orders</title>
+  <link rel="stylesheet" href="kysh.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="page">
+  <h1 class="page-title">My Orders</h1>
+  <div id="list"></div>
+</main>
+
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script>
+(async function () {
+  if (!(await KYSH.requireLogin())) return;
+  KYSH.header({ search: true });
+  const E = KYSH.esc, R = KYSH.inr, list = document.getElementById('list');
+  const orders = await KYSH.getOrders();
+  if (!orders.length) {
+    list.innerHTML = '<div class="empty"><p>You haven\'t placed any orders yet.</p><a class="btn btn-primary" href="productlist.html">Start shopping</a></div>';
+    return;
+  }
+  list.innerHTML = orders.map(o => `
+    <div class="order-card">
+      <div class="order-head">
+        <span><b>${E(o.id)}</b> · ${new Date(o.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        <span class="status">${E(o.status)}</span>
+      </div>
+      <div class="thumbs">${o.items.map(i => `<a href="product.html?id=${i.id}"><img src="${E(KYSH.img(i.img, 120))}" alt="${E(i.name)}" title="${E(i.name)} (${E(i.size)} × ${i.qty})"></a>`).join('')}</div>
+      <p style="margin-top:10px;font-size:14px">${o.items.map(i => E(i.name) + ' (' + E(i.size) + ' × ' + i.qty + ')').join(', ')}</p>
+      <p style="margin-top:6px"><b>${R(o.total)}</b> · ${o.payment === 'cod' ? 'Cash on Delivery' : 'Paid online'}${o.coupon ? ' · coupon ' + E(o.coupon) : ''}</p>
+    </div>`).join('');
+})();
+</script>
+</body>
+</html>

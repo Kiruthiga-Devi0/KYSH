@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYSH – Product</title>
+  <link rel="stylesheet" href="kysh.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="page" id="main"><p class="muted">Loading…</p></main>
+
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script>
+(async function () {
+  if (!(await KYSH.requireLogin())) return;
+  KYSH.header({ search: true });
+
+  const id = Number(new URLSearchParams(location.search).get('id'));
+  const all = await KYSH.products();
+  const p = all.find(x => x.id === id);
+  const main = document.getElementById('main');
+
+  if (!p) {
+    main.innerHTML = '<div class="empty"><p>We couldn\'t find that product.</p><a class="btn btn-primary" href="productlist.html">Back to shop</a></div>';
+    return;
+  }
+  document.title = p.name + ' – KYSH';
+
+  const related = all.filter(x => x.category === p.category && x.id !== p.id).slice(0, 4);
+  const E = KYSH.esc;
+
+  main.innerHTML = `
+    <div class="breadcrumb"><a href="productlist.html">Shop</a> / <a href="productlist.html?cat=${encodeURIComponent(p.category)}">${E(p.category)}</a> / ${E(p.name)}</div>
+    <div class="detail">
+      <div class="detail-img"><img src="${E(KYSH.img(p.img, 900))}" alt="${E(p.name)}"></div>
+      <div class="detail-info">
+        <span class="card-brand">${E(p.brand)}</span>
+        <h1>${E(p.name)}</h1>
+        <div><span class="price">${KYSH.inr(p.price)}</span><span class="old-price">${KYSH.inr(p.oldPrice)}</span><span class="disc">${p.discount}% OFF</span></div>
+        <div>
+          <strong>Select size</strong>
+          <div class="sizes" id="sizes" role="group" aria-label="Size">${p.sizes.map(s => `<button type="button">${E(s)}</button>`).join('')}</div>
+        </div>
+        <div>
+          <strong>Quantity</strong>
+          <div class="qty" id="qty"><button type="button" data-d="-1" aria-label="Decrease">−</button><span id="qtyVal">1</span><button type="button" data-d="1" aria-label="Increase">+</button></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="addBag">Add to Bag</button>
+          <button class="btn btn-green" id="buyNow">Buy Now</button>
+          <button class="btn btn-ghost" id="wishBtn"></button>
+        </div>
+        <div class="facts">
+          <h3 style="margin:12px 0 6px">Product details</h3>
+          <p><b>Description:</b> ${E(p.description)}</p>
+          <p><b>Fabric:</b> ${E(p.fabric)}</p>
+          <p><b>Fit:</b> ${E(p.fit)}</p>
+          <p><b>Care:</b> ${E(p.care)}</p>
+        </div>
+      </div>
+    </div>
+    ${related.length ? `<h2 class="section-title">You may also like</h2>
+    <div class="product-grid">${related.map(r => `
+      <article class="card"><a class="card-img" href="product.html?id=${r.id}"><img loading="lazy" src="${E(KYSH.img(r.img, 400))}" alt="${E(r.name)}"><span class="badge">${r.discount}% OFF</span></a>
+        <div class="card-info"><span class="card-brand">${E(r.brand)}</span><a class="card-name" href="product.html?id=${r.id}">${E(r.name)}</a>
+        <div><span class="price">${KYSH.inr(r.price)}</span><span class="old-price">${KYSH.inr(r.oldPrice)}</span></div></div></article>`).join('')}</div>` : ''}`;
+
+  let size = '', qty = 1;
+  const sizeBtns = [...document.querySelectorAll('#sizes button')];
+  sizeBtns.forEach(b => b.addEventListener('click', () => {
+    sizeBtns.forEach(x => x.classList.remove('active')); b.classList.add('active'); size = b.textContent;
+  }));
+  document.getElementById('qty').addEventListener('click', e => {
+    const d = Number(e.target.dataset.d); if (!d) return;
+    qty = Math.min(p.stock, Math.max(1, qty + d));
+    document.getElementById('qtyVal').textContent = qty;
+  });
+  const needSize = () => { if (!size) { KYSH.toast('Please select a size'); document.getElementById('sizes').scrollIntoView({ block: 'center', behavior: 'smooth' }); return true; } };
+
+  document.getElementById('addBag').addEventListener('click', () => {
+    if (needSize()) return;
+    KYSH.addToCart(p.id, size, qty);
+    KYSH.toast(p.name + ' (' + size + ') added to bag');
+  });
+  document.getElementById('buyNow').addEventListener('click', () => {
+    if (needSize()) return;
+    KYSH.setBuyNow({ id: p.id, size, qty });          // separate slot: the existing bag is left untouched
+    location.href = 'payment.html?mode=buynow';
+  });
+  const wishBtn = document.getElementById('wishBtn');
+  const paintWish = () => { wishBtn.textContent = KYSH.inWishlist(p.id) ? '♥ In wishlist (tap to remove)' : '♡ Add to wishlist'; };
+  wishBtn.addEventListener('click', () => { KYSH.toast(KYSH.toggleWishlist(p.id) ? 'Added to wishlist' : 'Removed from wishlist'); paintWish(); });
+  paintWish();
+})();
+</script>
+</body>
+</html>

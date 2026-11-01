@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYSH – Shop</title>
+  <link rel="stylesheet" href="kysh.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="page">
+  <div class="toolbar">
+    <div class="chips" id="chips" aria-label="Categories"></div>
+    <div class="toolbar-right">
+      <span id="resultCount" class="muted"></span>
+      <select id="sort" aria-label="Sort products">
+        <option value="rel">Sort: Recommended</option>
+        <option value="low">Price: Low to High</option>
+        <option value="high">Price: High to Low</option>
+        <option value="disc">Biggest discount</option>
+      </select>
+    </div>
+  </div>
+  <section class="product-grid" id="grid" aria-live="polite"></section>
+</main>
+
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script>
+(async function () {
+  if (!(await KYSH.requireLogin())) return;
+
+  const params = new URLSearchParams(location.search);
+  let q = (params.get('q') || '').trim();
+  let cat = params.get('cat') || 'All';
+  let sort = params.get('sort') || 'rel';
+
+  const all = await KYSH.products();
+  const cats = ['All', ...[...new Set(all.map(p => p.category))].sort()];
+  // Categories linked from the home menu that have no products yet should still open sensibly
+  if (cat !== 'All' && !cats.includes(cat)) cats.push(cat);
+
+  const grid = document.getElementById('grid');
+  const chips = document.getElementById('chips');
+  const sortEl = document.getElementById('sort');
+  sortEl.value = sort;
+
+  KYSH.header({ search: true, q, onSearch: v => { q = v; render(); } });
+
+  function visible() {
+    const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+    let list = all.filter(p => {
+      if (cat !== 'All' && p.category !== cat) return false;
+      const hay = (p.name + ' ' + p.brand + ' ' + p.category + ' ' + p.fabric + ' ' + p.fit).toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+    if (sort === 'low') list.sort((a, b) => a.price - b.price);
+    else if (sort === 'high') list.sort((a, b) => b.price - a.price);
+    else if (sort === 'disc') list.sort((a, b) => b.discount - a.discount);
+    return list;
+  }
+
+  function renderChips() {
+    chips.innerHTML = cats.map(c => `<button class="chip${c === cat ? ' active' : ''}" data-cat="${KYSH.esc(c)}">${KYSH.esc(c)}</button>`).join('');
+  }
+
+  function render() {
+    const list = visible();
+    document.getElementById('resultCount').textContent = list.length + (list.length === 1 ? ' item' : ' items');
+    renderChips();
+    const sp = new URLSearchParams();
+    if (q) sp.set('q', q);
+    if (cat !== 'All') sp.set('cat', cat);
+    if (sort !== 'rel') sp.set('sort', sort);
+    history.replaceState(null, '', location.pathname + (sp.toString() ? '?' + sp : ''));
+
+    if (!list.length) {
+      grid.innerHTML = `<div class="empty"><p>No products found${q ? ' for “' + KYSH.esc(q) + '”' : ''}${cat !== 'All' ? ' in ' + KYSH.esc(cat) : ''}.</p>
+        <button class="btn btn-primary" id="resetBtn">Show all products</button></div>`;
+      document.getElementById('resetBtn').onclick = () => { q = ''; cat = 'All'; sort = 'rel'; sortEl.value = 'rel'; document.querySelector('.search-form input').value = ''; render(); };
+      return;
+    }
+    const wish = new Set(KYSH.getWishlist());
+    grid.innerHTML = list.map(p => `
+      <article class="card" data-id="${p.id}">
+        <a class="card-img" href="product.html?id=${p.id}">
+          <img loading="lazy" src="${KYSH.esc(KYSH.img(p.img, 400))}" alt="${KYSH.esc(p.name)}">
+          <span class="badge">${p.discount}% OFF</span>
+        </a>
+        <button class="heart${wish.has(p.id) ? ' on' : ''}" data-heart="${p.id}" aria-label="Toggle wishlist for ${KYSH.esc(p.name)}" aria-pressed="${wish.has(p.id)}">
+          <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/></svg>
+        </button>
+        <div class="card-info">
+          <span class="card-brand">${KYSH.esc(p.brand)}</span>
+          <a class="card-name" href="product.html?id=${p.id}">${KYSH.esc(p.name)}</a>
+          <div><span class="price">${KYSH.inr(p.price)}</span><span class="old-price">${KYSH.inr(p.oldPrice)}</span></div>
+          <a class="btn btn-primary btn-sm" href="product.html?id=${p.id}">Select size</a>
+        </div>
+      </article>`).join('');
+  }
+
+  chips.addEventListener('click', e => {
+    const b = e.target.closest('[data-cat]'); if (!b) return;
+    cat = b.dataset.cat; render();
+  });
+  sortEl.addEventListener('change', () => { sort = sortEl.value; render(); });
+  grid.addEventListener('click', e => {
+    const h = e.target.closest('[data-heart]'); if (!h) return;
+    const on = KYSH.toggleWishlist(Number(h.dataset.heart));
+    h.classList.toggle('on', on); h.setAttribute('aria-pressed', on);
+    KYSH.toast(on ? 'Added to wishlist' : 'Removed from wishlist');
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

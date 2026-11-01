@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYSH – My Bag</title>
+  <link rel="stylesheet" href="kysh.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="page">
+  <h1 class="page-title">My Bag</h1>
+  <div id="content"></div>
+</main>
+
+<script src="../lib/pricing.js"></script>
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script>
+(async function () {
+  if (!(await KYSH.requireLogin())) return;
+  KYSH.header({ search: true });
+  const [prods, cps] = await Promise.all([KYSH.products(), KYSH.coupons()]);
+  const E = KYSH.esc, R = KYSH.inr;
+  const root = document.getElementById('content');
+  let couponMsg = null;
+
+  function render() {
+    const cart = KYSH.getCart();
+    if (!cart.length) {
+      root.innerHTML = '<div class="empty"><p>Your bag is empty.</p><a class="btn btn-primary" href="productlist.html">Start shopping</a></div>';
+      return;
+    }
+    const code = KYSH.getCoupon();
+    const t = KyshPricing.priceCart(cart, prods, cps, code);
+    const couponFeedback = couponMsg || (t.couponError ? { err: true, text: t.couponError } : (t.appliedCode ? { text: t.appliedCode + ' applied — you saved ' + R(t.discount) } : null));
+    const usable = t.lines.length && !t.errors.length;
+
+    root.innerHTML = `
+    <div class="two-col">
+      <div class="panel">
+        ${t.errors.length ? `<div class="alert">${t.errors.map(E).join('<br>')}</div>` : ''}
+        ${t.lines.map(l => `
+          <div class="line">
+            <a href="product.html?id=${l.id}"><img src="${E(KYSH.img(l.img, 200))}" alt="${E(l.name)}"></a>
+            <div class="line-info">
+              <span class="card-brand">${E(l.brand)}</span>
+              <a class="line-name" href="product.html?id=${l.id}">${E(l.name)}</a>
+              <span class="muted">Size: ${E(l.size)}</span>
+              <span><b>${R(l.unit)}</b><span class="old-price">${R(l.mrp)}</span></span>
+              <div class="qty"><button data-i="${l.i}" data-q="${l.qty - 1}" aria-label="Decrease quantity">−</button><span>${l.qty}</span><button data-i="${l.i}" data-q="${l.qty + 1}" aria-label="Increase quantity">+</button></div>
+              <button class="link-btn" data-remove="${l.i}">Remove</button>
+            </div>
+            <b>${R(l.total)}</b>
+          </div>`).join('')}
+      </div>
+      <aside class="panel">
+        <h2>Order summary</h2>
+        <div class="coupon">
+          <input class="field" id="couponInput" placeholder="Coupon code" value="${E(code)}" autocomplete="off">
+          <button class="btn btn-ghost" id="applyCoupon">Apply</button>
+        </div>
+        <div class="coupon-msg ${couponFeedback ? (couponFeedback.err ? 'err' : 'ok') : ''}">${couponFeedback ? E(couponFeedback.text) : ''}</div>
+        <div class="sum-row"><span>Bag total (MRP)</span><span>${R(t.mrpTotal)}</span></div>
+        <div class="sum-row save"><span>Discount on MRP</span><span>− ${R(t.mrpTotal - t.subtotal)}</span></div>
+        ${t.discount ? `<div class="sum-row save"><span>Coupon (${E(t.appliedCode)})</span><span>− ${R(t.discount)}</span></div>` : ''}
+        <div class="sum-row total"><span>Total</span><span>${R(t.total)}</span></div>
+        <p class="sum-row save" style="justify-content:center">You're saving ${R(t.savings)} on this order</p>
+        <button class="btn btn-primary btn-block" id="checkout" ${usable ? '' : 'disabled'}>Proceed to checkout</button>
+        <p class="muted" style="font-size:12px;margin-top:10px">Try code <b>KYSH10</b> on orders above ₹999.</p>
+      </aside>
+    </div>`;
+  }
+
+  root.addEventListener('click', e => {
+    const b = e.target;
+    if (b.dataset.q !== undefined) { KYSH.setQty(Number(b.dataset.i), Number(b.dataset.q)); couponMsg = null; render(); }
+    else if (b.dataset.remove !== undefined) { KYSH.removeLine(Number(b.dataset.remove)); couponMsg = null; render(); KYSH.toast('Removed from bag'); }
+    else if (b.id === 'applyCoupon') {
+      const v = document.getElementById('couponInput').value.trim().toUpperCase();
+      const t = KyshPricing.priceCart(KYSH.getCart(), prods, cps, v);
+      if (!v) { KYSH.setCoupon(''); couponMsg = null; }
+      else if (t.couponError) { couponMsg = { err: true, text: t.couponError }; KYSH.setCoupon(''); }
+      else { KYSH.setCoupon(v); couponMsg = null; }
+      render();
+    }
+    else if (b.id === 'checkout') { KYSH.clearBuyNow(); location.href = 'payment.html'; }
+  });
+  root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'couponInput') document.getElementById('applyCoupon').click(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
